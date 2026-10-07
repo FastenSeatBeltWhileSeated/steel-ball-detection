@@ -1,8 +1,7 @@
-# Python 2/3 compatibility
-from __future__ import print_function
+"""Interactive contour-based steel ball detection prototype."""
 import cv2
 import numpy as np
-import sys
+import argparse
 import time
 import imutils
 from collections import deque
@@ -69,13 +68,22 @@ def detect(c):
 
 if __name__ == '__main__':
 
-    print(__doc__)
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("-i", "--input", default="0",
+                        help="Video path or camera index (default: 0)")
+    parser.add_argument("--logo", help="Optional transparent PNG overlay")
+    args = parser.parse_args()
+    source = int(args.input) if args.input.isdecimal() else args.input
 
-    try:
-        fn = sys.argv[1]
-    except:
-        fn = 0
-    
+    logo_bgr = logo_alpha = None
+    if args.logo:
+        logo = cv2.imread(args.logo, cv2.IMREAD_UNCHANGED)
+        if logo is None or logo.ndim != 3 or logo.shape[2] != 4:
+            parser.error("--logo must be a readable PNG with an alpha channel")
+        logo = cv2.resize(logo, (201, 67))
+        logo_bgr = logo[:, :, :3].astype(np.float32)
+        logo_alpha = logo[:, :, 3:4].astype(np.float32) / 255.0
+
     pts = deque(maxlen=64)
 
     #INCIAL VALUES
@@ -122,180 +130,178 @@ if __name__ == '__main__':
 
 
     #START CAPTURE
-    cap = cv2.VideoCapture('Registros-visita 9-9-2020/1,1M 25P FRO.avi')
+    cap = cv2.VideoCapture(source)
+    if not cap.isOpened():
+        cap.release()
+        cv2.destroyAllWindows()
+        parser.error("Cannot open input video or camera")
 
 
-    while True:
+    try:
+        while True:
 
-        #Leer imagen
-        flag, img = cap.read()
-        frame=cv2.resize(img,(720,480))
-        frame1 = frame.copy()
+            #Leer imagen
+            flag, img = cap.read()
+            if not flag or img is None:
+                break
+            frame=cv2.resize(img,(720,480))
+            frame1 = frame.copy()
 
-        #ratio = img.shape[0] / float(frame.shape[0])
-        ratio=1
+            #ratio = img.shape[0] / float(frame.shape[0])
+            ratio=1
 
-        #Filtro por color HSV
-        hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
-        
-        l_h = cv2.getTrackbarPos("LH", name_of_windows)
-        l_s = cv2.getTrackbarPos("LS", name_of_windows)
-        l_v = cv2.getTrackbarPos("LV", name_of_windows)
+            #Filtro por color HSV
+            hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+            
+            l_h = cv2.getTrackbarPos("LH", name_of_windows)
+            l_s = cv2.getTrackbarPos("LS", name_of_windows)
+            l_v = cv2.getTrackbarPos("LV", name_of_windows)
 
-        u_h = cv2.getTrackbarPos("UH", name_of_windows)
-        u_s = cv2.getTrackbarPos("US", name_of_windows)
-        u_v = cv2.getTrackbarPos("UV", name_of_windows)
+            u_h = cv2.getTrackbarPos("UH", name_of_windows)
+            u_s = cv2.getTrackbarPos("US", name_of_windows)
+            u_v = cv2.getTrackbarPos("UV", name_of_windows)
 
-        l_b = np.array([l_h, l_s, l_v])
-        u_b = np.array([u_h, u_s, u_v])
+            l_b = np.array([l_h, l_s, l_v])
+            u_b = np.array([u_h, u_s, u_v])
 
-        mask = cv2.inRange(hsv, l_b, u_b)
+            mask = cv2.inRange(hsv, l_b, u_b)
 
-        res = cv2.bitwise_and(frame, frame, mask=mask)
-        final_imagen=res
+            res = cv2.bitwise_and(frame, frame, mask=mask)
+            final_imagen=res
 
-        cv2.imshow("Filtro hsv",final_imagen)
+            cv2.imshow("Filtro hsv",final_imagen)
 
- 
-        # Convert it to grayscale, blur it slightly
-        h, s, v1 = cv2.split(final_imagen)
-        gray=v1
-
-
-        #blurred = cv2.GaussianBlur(gray, (5, 5), 0)
-
-        # perform a series of erosions and dilations to remove
-        # any small blobs of noise from the thresholded image
-        gray = cv2.erode(gray, None, iterations=1)
-        gray = cv2.dilate(gray, None, iterations=1)
+     
+            # Convert it to grayscale, blur it slightly
+            h, s, v1 = cv2.split(final_imagen)
+            gray=v1
 
 
-        #Filtro Gaussiano - Canny
-        if (blurAmount > 0):
-            blurredSrc = cv2.GaussianBlur(gray, (2 * blurAmount + 1, 2 * blurAmount + 1), 0)
-        else:
-            blurredSrc = gray.copy()
+            #blurred = cv2.GaussianBlur(gray, (5, 5), 0)
 
-        cv2.imshow("blurredSrc",blurredSrc)
-        
-
-        # Canny requires aperture size to be odd
-        apertureSize = apertureSizes[apertureIndex]
-
-        # Apply canny to detect the images
-        #blurredSrc = cv2.bilateralFilter(blurredSrc, 11, 17, 17)
-        edges = cv2.Canny(blurredSrc, lowThreshold, highThreshold, apertureSize = apertureSize)
-        cv2.imshow("Canny",edges)
-
-        thresh=edges
-
-        threshold_low_value  = cv2.getTrackbarPos("Threshold Binary Low", name_of_windows)
-        threshold_high_value = cv2.getTrackbarPos("Threshold Binary High", name_of_windows)
-
-        thresh = cv2.threshold(thresh, threshold_low_value, threshold_high_value, cv2.THRESH_BINARY)[1]
-        cv2.imshow("thresh",thresh)
+            # perform a series of erosions and dilations to remove
+            # any small blobs of noise from the thresholded image
+            gray = cv2.erode(gray, None, iterations=1)
+            gray = cv2.dilate(gray, None, iterations=1)
 
 
-        # find contours in the thresholded imageq
-        cnts = cv2.findContours(thresh.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        #cnts = cv2.findContours(thresh.copy(), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-        #cnts = cv2.findContours(thresh.copy(), cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
-        cnts = imutils.grab_contours(cnts)
-        center = None
+            #Filtro Gaussiano - Canny
+            if (blurAmount > 0):
+                blurredSrc = cv2.GaussianBlur(gray, (2 * blurAmount + 1, 2 * blurAmount + 1), 0)
+            else:
+                blurredSrc = gray.copy()
 
-        # loop over the contours
-        for c in cnts:
+            cv2.imshow("blurredSrc",blurredSrc)
+            
 
-            #Calculo del Momemtum
-            M = cv2.moments(c)
+            # Canny requires aperture size to be odd
+            apertureSize = apertureSizes[apertureIndex]
 
-            #Obtener radio minimo
-            ((x, y), radius) = cv2.minEnclosingCircle(c)
-            center = (int(x),int(y))
+            # Apply canny to detect the images
+            #blurredSrc = cv2.bilateralFilter(blurredSrc, 11, 17, 17)
+            edges = cv2.Canny(blurredSrc, lowThreshold, highThreshold, apertureSize = apertureSize)
+            cv2.imshow("Canny",edges)
 
-            if (M["m00"] != 0): # and (radius>10) and (radius<50):
+            thresh=edges
 
-                #Obtener centroides
-                cX = int(M["m10"] / M["m00"])
-                cY = int(M["m01"] / M["m00"])
-                center = (int(M["m10"] / M["m00"]), int(M["m01"] / M["m00"]))
+            threshold_low_value  = cv2.getTrackbarPos("Threshold Binary Low", name_of_windows)
+            threshold_high_value = cv2.getTrackbarPos("Threshold Binary High", name_of_windows)
 
-                #Area y perimetro real del objeto detectado
-                area = cv2.contourArea(c)
-                perimeter = cv2.arcLength(c,True)
-
-                #Area circulo del area minima
-                area_circulo= pi * radius ** 2
-
-                #Calcular diferencia porcentual entre una y otra
-                diferencia = (area_circulo-area)*100/area
-
-                if diferencia<=100:
-
-                    # Imprimir info de radio detectado
-                    radius_ = ("Radio min: {0} px".format(round(radius,2)))
-                    cv2.putText(frame, radius_, (cX - 20, cY - 100), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
-
-                    # Imprimir info de radio detectado
-                    area_circulo_ = ("Area Circulo: {0} px2".format(round(area_circulo,2)))
-                    cv2.putText(frame, area_circulo_, (cX - 20, cY - 80), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
-
-                    # Imprimir info de radio detectado
-                    area_ = ("Area Objeto: {0} px2".format(round(area,2)))
-                    cv2.putText(frame, area_, (cX - 20, cY - 60), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
-
-                    # Imprimir info de radio detectado
-                    diferencia_= ("Diferencia: {0} %".format(round(diferencia,2)))
-                    cv2.putText(frame, diferencia_, (cX - 20, cY - 40), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
+            thresh = cv2.threshold(thresh, threshold_low_value, threshold_high_value, cv2.THRESH_BINARY)[1]
+            cv2.imshow("thresh",thresh)
 
 
-                    # multiply the contour (x, y)-coordinates by the resize ratio,
-                    c = c.astype("float")
-                    c *= ratio
-                    c = c.astype("int")
-                
-                    #Dibujar contorno real del objeto
-                    cv2.drawContours(frame, [c], -1, (0, 255, 0), 2)
+            # find contours in the thresholded imageq
+            cnts = cv2.findContours(thresh.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            #cnts = cv2.findContours(thresh.copy(), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+            #cnts = cv2.findContours(thresh.copy(), cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
+            cnts = imutils.grab_contours(cnts)
+            center = None
 
-                    # Dibujar circunferencia de radio igual al radio minimo. 
-                    cv2.circle(frame, (int(x), int(y)), int(radius), (0, 255, 255), 2)
-                    cv2.circle(frame, center, 5, (0, 0, 255), -1)
+            # loop over the contours
+            for c in cnts:
 
-                    #Identificacion dentro del circulo
-                    # shape = detect(c)
-                    # cv2.putText(frame, shape, (cX, cY), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
+                #Calculo del Momemtum
+                M = cv2.moments(c)
+
+                #Obtener radio minimo
+                ((x, y), radius) = cv2.minEnclosingCircle(c)
+                center = (int(x),int(y))
+
+                if (M["m00"] != 0): # and (radius>10) and (radius<50):
+
+                    #Obtener centroides
+                    cX = int(M["m10"] / M["m00"])
+                    cY = int(M["m01"] / M["m00"])
+                    center = (int(M["m10"] / M["m00"]), int(M["m01"] / M["m00"]))
+
+                    #Area y perimetro real del objeto detectado
+                    area = cv2.contourArea(c)
+                    perimeter = cv2.arcLength(c,True)
+
+                    #Area circulo del area minima
+                    area_circulo= pi * radius ** 2
+
+                    #Calcular diferencia porcentual entre una y otra
+                    diferencia = (area_circulo-area)*100/area
+
+                    if diferencia<=100:
+
+                        # Imprimir info de radio detectado
+                        radius_ = ("Radio min: {0} px".format(round(radius,2)))
+                        cv2.putText(frame, radius_, (cX - 20, cY - 100), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
+
+                        # Imprimir info de radio detectado
+                        area_circulo_ = ("Area Circulo: {0} px2".format(round(area_circulo,2)))
+                        cv2.putText(frame, area_circulo_, (cX - 20, cY - 80), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
+
+                        # Imprimir info de radio detectado
+                        area_ = ("Area Objeto: {0} px2".format(round(area,2)))
+                        cv2.putText(frame, area_, (cX - 20, cY - 60), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
+
+                        # Imprimir info de radio detectado
+                        diferencia_= ("Diferencia: {0} %".format(round(diferencia,2)))
+                        cv2.putText(frame, diferencia_, (cX - 20, cY - 40), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
 
 
+                        # multiply the contour (x, y)-coordinates by the resize ratio,
+                        c = c.astype("float")
+                        c *= ratio
+                        c = c.astype("int")
+                    
+                        #Dibujar contorno real del objeto
+                        cv2.drawContours(frame, [c], -1, (0, 255, 0), 2)
 
-        #LOGO SAUT #720x480
-        img2 = cv2.imread("Logo_Saut.png", -1) #300x100  200 125 
-        glassPNG = cv2.resize(img2, (201,67))
-        glassBGR = glassPNG[:,:,0:3]
-        glassMask1 = glassPNG[:,:,3]
-        glassMask = cv2.merge((glassMask1,glassMask1,glassMask1))
-        glassMask = np.uint8(glassMask/255)
-        faceWithGlassesArithmetic = frame.copy()
-        eyeROI= faceWithGlassesArithmetic[20:87,499:700]
-        maskedEye = cv2.multiply(eyeROI,(1-  glassMask ))
-        maskedGlass = cv2.multiply(glassBGR,glassMask)
-        eyeRoiFinal = cv2.add(maskedEye, maskedGlass)
-        faceWithGlassesArithmetic[20:87,499:700]=eyeRoiFinal
-        frame = faceWithGlassesArithmetic
+                        # Dibujar circunferencia de radio igual al radio minimo. 
+                        cv2.circle(frame, (int(x), int(y)), int(radius), (0, 255, 255), 2)
+                        cv2.circle(frame, center, 5, (0, 0, 255), -1)
+
+                        #Identificacion dentro del circulo
+                        # shape = detect(c)
+                        # cv2.putText(frame, shape, (cX, cY), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
 
 
 
-        #Imagen Final
-        cv2.imshow("IMAGEN",frame)
+            # Optional PNG overlay, loaded once before processing
+            if logo_bgr is not None:
+                roi = frame[20:87, 499:700].astype(np.float32)
+                frame[20:87, 499:700] = np.rint(
+                    roi * (1.0 - logo_alpha) + logo_bgr * logo_alpha
+                ).astype(np.uint8)
+
+            #Imagen Final
+            cv2.imshow("IMAGEN",frame)
 
 
-        #Tiempo espera final
-        sleep_ = cv2.getTrackbarPos("Time Sleep", name_of_windows)
-        cv2.waitKey(sleep_)
-
-        #Escape para salir
-        key = cv2.waitKey(1)
-        if key == 27:
-            break
+            #Tiempo espera final
+            sleep_ = cv2.getTrackbarPos("Time Sleep", name_of_windows)
+            # Read the keyboard once so Escape is not consumed prematurely
+            key = cv2.waitKey(max(1, sleep_)) & 0xFF
+            if key == 27:
+                break
 
 
-    cv2.destroyAllWindows()
+    finally:
+        cap.release()
+        cv2.destroyAllWindows()
+
