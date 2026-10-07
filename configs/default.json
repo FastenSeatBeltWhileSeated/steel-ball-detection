@@ -1,0 +1,15 @@
+{
+  "width": 720,
+  "height": 480,
+  "hsv_lower": [0, 0, 0],
+  "hsv_upper": [179, 255, 255],
+  "blur_amount": 0,
+  "canny_low": 0,
+  "canny_high": 255,
+  "aperture_size": 3,
+  "binary_threshold": 0,
+  "binary_max": 255,
+  "max_area_difference": 100.0,
+  "min_area": 0.0,
+  "grayscale_mode": "grayscale"
+}

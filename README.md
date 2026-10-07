@@ -1,40 +1,14 @@
 # Steel Ball Detection
 
-Interactive computer vision prototype for detecting candidate steel balls in video using Python and OpenCV.
+Classical computer vision prototype for detecting candidate steel balls using OpenCV and contour geometry.
 
-This project explores **classical image processing and contour geometry**. It includes adjustable processing controls and screenshots from an earlier run.
+![Reproducible synthetic pipeline](docs/assets/synthetic-pipeline.png)
 
-## Recorded examples
+**The preview uses synthetic shapes.** The [historical screenshots](docs/algorithm.md#evidence-and-validation) and [algorithm notes](docs/algorithm.md) provide the project's context and limitations.
 
-![Detection prototype, recorded screenshot 1](Captura%20de%20pantalla%20de%202020-09-29%2017-02-50.png)
+## Install
 
-![Detection prototype, recorded screenshot 2](Captura%20de%20pantalla%20de%202020-09-29%2017-02-56.png)
-
-These are historical screenshots included in the repository, rather than results from a newly benchmarked dataset.
-
-## Processing pipeline
-
-1. Resize each video frame to 720 × 480 pixels.
-2. Apply an adjustable HSV color mask.
-3. Extract the red channel of the masked BGR image as a single-channel processing input.
-4. Apply erosion, dilation and optional Gaussian blur.
-5. Detect edges with Canny and apply a binary threshold.
-6. Extract external contours.
-7. Compare contour area with the area of its minimum enclosing circle.
-8. Draw accepted contours, enclosing circles, centroids and pixel measurements.
-
-For contour area `A` and enclosing-circle radius `r`, the implemented criterion is:
-
-```text
-difference (%) = 100 × (πr² − A) / A
-accept candidate when difference ≤ 100
-```
-
-This is a permissive geometric heuristic. It can accept objects other than steel balls and does not identify material.
-
-## Installation
-
-Use Python 3 in a desktop environment with OpenCV GUI support.
+Use Python 3.10 or newer:
 
 ```bash
 git clone https://github.com/FastenSeatBeltWhileSeated/Steel-ball-detection.git
@@ -42,65 +16,64 @@ cd Steel-ball-detection
 python -m venv .venv
 ```
 
-Activate the environment:
+Activate with `source .venv/bin/activate` on Linux/macOS or `.venv\Scripts\Activate.ps1` in Windows PowerShell, then:
 
 ```bash
-# Linux / macOS
-source .venv/bin/activate
-# Windows PowerShell
-.venv\Scripts\Activate.ps1
+python -m pip install -e .
 ```
 
-Then install the dependencies:
+## Try the reproducible example
 
 ```bash
-python -m pip install -r requirements.txt
+python examples/synthetic_demo.py
+steel-ball-detect --input examples/generated/synthetic-input.avi --config configs/default.json --headless --output examples/generated/detected.avi
 ```
 
-## Usage
+The demo generates its own video. Original industrial input videos and logos are not included.
 
-Process a video supplied by you:
+## Use your video or camera
 
 ```bash
-python steel_balls_detection_v3.py --input /path/to/video.avi
+steel-ball-detect --input /path/to/input.avi
+steel-ball-detect --input 0
+steel-ball-detect --input /path/to/input.avi --config configs/default.json --save-config local-settings.json
 ```
 
-Or use a camera:
+Desktop controls let you tune HSV, blur, Canny and threshold parameters. Press **Escape** to stop, or **s** to save settings when `--save-config` is supplied. Final settings are also saved on normal exit. Requires a graphical desktop.
+
+For processing without windows:
 
 ```bash
-python steel_balls_detection_v3.py --input 0
+python -m steel_ball_detection --input /path/to/input.avi --headless --output detected.avi
 ```
 
-Optionally include a transparent PNG overlay:
+Optional PNG overlay: `--logo /path/to/logo.png`. Export uses MJPG AVI and does not retain audio; choose a new output path to avoid replacing an existing output file.
 
-```bash
-python steel_balls_detection_v3.py --input /path/to/video.avi --logo /path/to/logo.png
-```
+## Structure
 
-The source video and original logo are **not included**. A logo is optional; provide a four-channel PNG when using `--logo`.
-
-Tune the HSV, blur, Canny and threshold trackbars while inspecting the intermediate windows. OpenCV hue values normally span 0–179, although this historical interface exposes a wider slider range. Press **Escape** with an OpenCV window focused to exit.
-
-## Repository contents
-
-| File | Purpose |
+| Directory | Contents |
 | --- | --- |
-| `steel_balls_detection_v3.py` | Interactive detection prototype |
-| `requirements.txt` | Python runtime dependencies |
-| Two PNG screenshots | Historical examples of the interface and detections |
+| `src/steel_ball_detection/` | Processing pipeline, video runner, GUI, JSON configuration and CLI |
+| `configs/` | Default reproducible parameters |
+| `examples/` | Synthetic input and preview generator |
+| `tests/` | Geometry, masks, configuration, video export and cleanup checks |
+| `docs/` | Method, limitations and migration notes |
+| `docs/assets/` | Renamed original screenshots and a synthetic preview |
 
-## Scope and limitations
+See [maintenance notes](docs/maintenance.md) for the former script paths and the reorganized modules.
 
-- Uses image processing and geometry; no trained ML model is included.
-- Detection settings require manual adjustment for lighting, background and video conditions.
-- The single-channel processing input is the masked red BGR channel, not HSV value or standard grayscale.
-- Measurements are in resized-image pixels; there is no camera calibration or physical size conversion.
-- No annotated dataset, precision/recall metrics, throughput benchmark or deployment validation is included.
-- Requires a graphical desktop; the interactive interface cannot run directly in a headless environment.
+## Recorded examples
 
-The current maintenance update makes the input configurable, makes the logo optional, handles end-of-video and releases resources. It retains the original detection pipeline.
+Historical output from the earlier prototype; these precede the corrected grayscale preprocessing:
 
-## Validation
+![Historical detection run 1](docs/assets/recorded-run-01.png)
+![Historical detection run 2](docs/assets/recorded-run-02.png)
 
-The maintenance update was checked with a generated video and mocked window controls to exercise the processing loop, optional overlay and end-of-video cleanup. This checks execution behavior; it does not establish detection accuracy or validate the GUI on a physical desktop.
+## Test
 
+```bash
+python -m pip install -e ".[test]"
+python -m pytest -q
+```
+
+Tests use synthetic media. Desktop controls are mocked in the GUI lifecycle test; a real desktop session still needs manual verification. No industrial detection accuracy or production validation is claimed.
