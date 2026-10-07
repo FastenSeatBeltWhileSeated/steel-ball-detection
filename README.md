@@ -11,8 +11,8 @@ Classical computer vision prototype for detecting candidate steel balls using Op
 Use Python 3.10 or newer:
 
 ```bash
-git clone https://github.com/FastenSeatBeltWhileSeated/Steel-ball-detection.git
-cd Steel-ball-detection
+git clone https://github.com/FastenSeatBeltWhileSeated/steel-ball-detection.git
+cd steel-ball-detection
 python -m venv .venv
 ```
 
